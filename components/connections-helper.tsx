@@ -19,6 +19,14 @@ declare global {
     kofiWidgetOverlay?: {
       draw: (username: string, options: Record<string, unknown>) => void
     }
+    gtag?: (command: string, action: string, params?: Record<string, unknown>) => void
+  }
+}
+
+// Analytics helper
+function trackEvent(action: string, params?: Record<string, unknown>) {
+  if (window.gtag) {
+    window.gtag("event", action, params)
   }
 }
 
@@ -89,6 +97,7 @@ function ColorButton({
       setLongPressTimer(null)
     }
     if (!didLongPress) {
+      trackEvent("color_select", { color })
       setSelectedColor(color)
     }
   }, [longPressTimer, didLongPress, setSelectedColor, color])
@@ -163,6 +172,8 @@ export function ConnectionsHelper() {
   const [showInfo, setShowInfo] = useState(false)
   // Track one-away words with their original color for unique indicators
   const [oneAwayWords, setOneAwayWords] = useState<Map<string, CategoryColor>>(new Map())
+  // Track which colors have been reported as complete to avoid duplicate events
+  const [reportedCompleteColors, setReportedCompleteColors] = useState<Set<CategoryColor>>(new Set())
 
   const fetchTodaysPuzzle = useCallback(async () => {
     setIsLoading(true)
@@ -243,9 +254,28 @@ export function ConnectionsHelper() {
     setIsEditing(false)
   }, [editText])
 
-  const getColorCount = (color: CategoryColor) => {
+  const getColorCount = useCallback((color: CategoryColor) => {
     return Object.values(wordColors).filter(c => c === color).length
-  }
+  }, [wordColors])
+
+  // Track when a color reaches 4/4
+  useEffect(() => {
+    const colors: CategoryColor[] = ["yellow", "green", "blue", "purple"]
+    for (const color of colors) {
+      const count = Object.values(wordColors).filter(c => c === color).length
+      if (count === 4 && !reportedCompleteColors.has(color)) {
+        trackEvent("color_complete", { color })
+        setReportedCompleteColors(prev => new Set(prev).add(color))
+      } else if (count < 4 && reportedCompleteColors.has(color)) {
+        // Reset if color drops below 4
+        setReportedCompleteColors(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(color)
+          return newSet
+        })
+      }
+    }
+  }, [wordColors, reportedCompleteColors])
 
   const toggleOneAway = useCallback((color: CategoryColor) => {
     // Get words currently assigned to this color
@@ -331,7 +361,10 @@ export function ConnectionsHelper() {
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <button
-          onClick={() => setShowInfo(true)}
+          onClick={() => {
+            trackEvent("button_click", { button_name: "info" })
+            setShowInfo(true)
+          }}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
           aria-label="How to use"
         >
@@ -351,7 +384,10 @@ export function ConnectionsHelper() {
         </div>
         
         <button
-          onClick={fetchTodaysPuzzle}
+          onClick={() => {
+            trackEvent("button_click", { button_name: "refresh" })
+            fetchTodaysPuzzle()
+          }}
           disabled={isLoading}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors disabled:opacity-50"
           aria-label="Refresh today's puzzle"
@@ -451,7 +487,10 @@ export function ConnectionsHelper() {
       {/* Action Buttons */}
       <div className="flex gap-3">
         <Button
-          onClick={shuffleWords}
+          onClick={() => {
+            trackEvent("button_click", { button_name: "shuffle" })
+            shuffleWords()
+          }}
           variant="outline"
           className="flex-1 h-12 border-white/30 text-white hover:bg-white/10 bg-transparent"
         >
@@ -459,7 +498,10 @@ export function ConnectionsHelper() {
           Shuffle
         </Button>
         <Button
-          onClick={clearAll}
+          onClick={() => {
+            trackEvent("button_click", { button_name: "clear_colors" })
+            clearAll()
+          }}
           variant="outline"
           className="flex-1 h-12 border-white/30 text-white hover:bg-white/10 bg-transparent"
         >
