@@ -1,0 +1,24 @@
+{
+  "name": "Purple Hunter",
+  "short_name": "Purple Hunter",
+  "description": "A helper app for solving NY Times Connections puzzles - find the tricky purple category!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#9c4dcc",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
