@@ -362,7 +362,7 @@ export function ConnectionsHelper() {
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={() => {
-            trackEvent("button_click", { button_name: "info" })
+            trackEvent("click_info_button")
             setShowInfo(true)
           }}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
@@ -385,7 +385,7 @@ export function ConnectionsHelper() {
         
         <button
           onClick={() => {
-            trackEvent("button_click", { button_name: "refresh" })
+            trackEvent("click_refresh_button")
             fetchTodaysPuzzle()
           }}
           disabled={isLoading}
@@ -488,7 +488,7 @@ export function ConnectionsHelper() {
       <div className="flex gap-3">
         <Button
           onClick={() => {
-            trackEvent("button_click", { button_name: "shuffle" })
+            trackEvent("click_shuffle_button")
             shuffleWords()
           }}
           variant="outline"
@@ -499,7 +499,7 @@ export function ConnectionsHelper() {
         </Button>
         <Button
           onClick={() => {
-            trackEvent("button_click", { button_name: "clear_colors" })
+            trackEvent("click_clear_colors_button")
             clearAll()
           }}
           variant="outline"
@@ -560,6 +560,17 @@ export function ConnectionsHelper() {
               "floating-chat.donateButton.background-color": "#794bc4",
               "floating-chat.donateButton.text-color": "#fff"
             })
+            // Track clicks on the Ko-fi support button
+            const observer = new MutationObserver(() => {
+              const kofiIframe = document.querySelector('iframe[id^="kofi-wo-container"]')
+              if (kofiIframe) {
+                kofiIframe.addEventListener("mousedown", () => {
+                  trackEvent("click_support_button")
+                })
+                observer.disconnect()
+              }
+            })
+            observer.observe(document.body, { childList: true, subtree: true })
           }
         }}
       />
