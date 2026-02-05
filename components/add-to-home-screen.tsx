@@ -24,6 +24,7 @@ export function AddToHomeScreen({ onModalChange }: AddToHomeScreenProps) {
   const [showIOSInstructions, setShowIOSInstructions] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
+  const [isMobileDevice, setIsMobileDevice] = useState(false)
 
   useEffect(() => {
     // Check if already installed (standalone mode)
@@ -32,6 +33,13 @@ export function AddToHomeScreen({ onModalChange }: AddToHomeScreenProps) {
     setIsStandalone(standalone)
 
     if (standalone) return
+
+    // Check if mobile device (phone or tablet)
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      || (navigator.maxTouchPoints > 0 && window.innerWidth <= 1024)
+    setIsMobileDevice(isMobile)
+
+    if (!isMobile) return // Don't set up install prompt for non-mobile devices
 
     // Check if iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream
@@ -69,8 +77,8 @@ export function AddToHomeScreen({ onModalChange }: AddToHomeScreenProps) {
     onModalChange?.(false)
   }
 
-  // Don't render if already installed
-  if (isStandalone) return null
+  // Don't render if already installed or not a mobile device
+  if (isStandalone || !isMobileDevice) return null
 
   return (
     <>
@@ -79,16 +87,16 @@ export function AddToHomeScreen({ onModalChange }: AddToHomeScreenProps) {
         onClick={handleInstallClick}
         className={cn(
           "fixed bottom-4 right-4 z-40",
-          "h-11 px-4 rounded-full",
+          "h-9 px-3 rounded-full",
           "bg-purple-600 hover:bg-purple-500",
           "shadow-lg shadow-purple-900/30",
-          "flex items-center gap-2",
+          "flex items-center gap-1.5",
           "transition-all duration-200",
           "active:scale-95"
         )}
         aria-label="Install app"
       >
-        <Download className="w-5 h-5 text-white" />
+        <Download className="w-4 h-4 text-white" />
         <span className="text-white font-medium text-sm">Install App</span>
       </button>
 
@@ -112,7 +120,7 @@ export function AddToHomeScreen({ onModalChange }: AddToHomeScreenProps) {
                   <span className="text-white text-xs font-bold">1</span>
                 </div>
                 <p>
-                  Tap the <Share className="w-4 h-4 inline-block mx-1 text-blue-400" /> Share button in Safari&apos;s toolbar
+                  Tap the <Share className="w-4 h-4 inline-block mx-1 text-blue-400" /> Share button in your browser
                 </p>
               </div>
               
@@ -121,7 +129,7 @@ export function AddToHomeScreen({ onModalChange }: AddToHomeScreenProps) {
                   <span className="text-white text-xs font-bold">2</span>
                 </div>
                 <p>
-                  Scroll down and tap <strong className="text-white">&quot;Add to Home Screen&quot;</strong>
+                  Look for <strong className="text-white">&quot;Add to Home Screen&quot;</strong> or <strong className="text-white">&quot;Install&quot;</strong>
                 </p>
               </div>
               
@@ -130,7 +138,7 @@ export function AddToHomeScreen({ onModalChange }: AddToHomeScreenProps) {
                   <span className="text-white text-xs font-bold">3</span>
                 </div>
                 <p>
-                  Tap <strong className="text-white">&quot;Add&quot;</strong> in the top right corner
+                  Confirm by tapping <strong className="text-white">&quot;Add&quot;</strong> or <strong className="text-white">&quot;Install&quot;</strong>
                 </p>
               </div>
             </div>
