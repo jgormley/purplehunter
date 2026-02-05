@@ -12,7 +12,8 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 import { Shuffle, RotateCcw, RefreshCw, Calendar, Info } from "lucide-react"
-import { cn } from "@/lib/utils" // Import the useLongPress hook
+import { cn } from "@/lib/utils"
+import { AddToHomeScreen } from "@/components/add-to-home-screen"
 
 declare global {
   interface Window {
@@ -170,6 +171,7 @@ export function ConnectionsHelper() {
   const [puzzleId, setPuzzleId] = useState<number | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [showInfo, setShowInfo] = useState(false)
+  const [showInstallModal, setShowInstallModal] = useState(false)
   // Track one-away words with their original color for unique indicators
   const [oneAwayWords, setOneAwayWords] = useState<Map<string, CategoryColor>>(new Map())
   // Track which colors have been reported as complete to avoid duplicate events
@@ -541,8 +543,8 @@ export function ConnectionsHelper() {
           right: auto !important;
           transform: translateX(-50%) scale(0.85) !important;
           transform-origin: bottom center !important;
-          opacity: ${showInfo ? 0 : 1} !important;
-          pointer-events: ${showInfo ? "none" : "auto"} !important;
+          opacity: ${showInfo || showInstallModal ? 0 : 1} !important;
+          pointer-events: ${showInfo || showInstallModal ? "none" : "auto"} !important;
           transition: opacity 0.2s ease !important;
         }
       `}</style>
@@ -574,7 +576,11 @@ export function ConnectionsHelper() {
           }
         }}
       />
+
       </div>
+
+      {/* Add to Home Screen Button - outside inner div for proper fixed positioning */}
+      <AddToHomeScreen onModalChange={setShowInstallModal} />
     </div>
   )
 }
