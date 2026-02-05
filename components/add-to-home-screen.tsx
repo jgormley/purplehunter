@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Share, X } from "lucide-react"
+import { Download, Share, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface BeforeInstallPromptEvent extends Event {
@@ -33,12 +33,6 @@ export function AddToHomeScreen() {
     // Check if iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream
     setIsIOS(iOS)
-
-    // Check if dismissed recently (within 7 days)
-    const dismissedAt = localStorage.getItem("a2hs-dismissed")
-    if (dismissedAt && Date.now() - parseInt(dismissedAt) < 7 * 24 * 60 * 60 * 1000) {
-      return
-    }
 
     if (iOS) {
       // Show button for iOS after a short delay
@@ -77,10 +71,8 @@ export function AddToHomeScreen() {
     setDeferredPrompt(null)
   }
 
-  const handleDismiss = () => {
-    setShowButton(false)
+  const closeIOSInstructions = () => {
     setShowIOSInstructions(false)
-    localStorage.setItem("a2hs-dismissed", Date.now().toString())
   }
 
   // Don't render if already installed or not showing
@@ -92,17 +84,18 @@ export function AddToHomeScreen() {
       <button
         onClick={handleInstallClick}
         className={cn(
-          "fixed bottom-20 right-4 z-40",
-          "w-12 h-12 rounded-full",
+          "fixed bottom-4 right-4 z-40",
+          "h-11 px-4 rounded-full",
           "bg-purple-600 hover:bg-purple-500",
           "shadow-lg shadow-purple-900/30",
-          "flex items-center justify-center",
+          "flex items-center gap-2",
           "transition-all duration-200",
           "active:scale-95"
         )}
-        aria-label="Add to home screen"
+        aria-label="Install app"
       >
-        <Plus className="w-6 h-6 text-white" />
+        <Download className="w-5 h-5 text-white" />
+        <span className="text-white font-medium text-sm">Install App</span>
       </button>
 
       {/* iOS Instructions Modal */}
@@ -112,7 +105,7 @@ export function AddToHomeScreen() {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-white">Add to Home Screen</h3>
               <button 
-                onClick={handleDismiss}
+                onClick={closeIOSInstructions}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10"
               >
                 <X className="w-5 h-5 text-gray-400" />
@@ -149,7 +142,7 @@ export function AddToHomeScreen() {
             </div>
 
             <button
-              onClick={handleDismiss}
+              onClick={closeIOSInstructions}
               className="w-full h-11 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium transition-colors"
             >
               Got it
