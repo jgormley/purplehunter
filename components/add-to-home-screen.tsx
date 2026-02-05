@@ -87,7 +87,7 @@ export function AddToHomeScreen({ onModalChange }: AddToHomeScreenProps) {
         onClick={handleInstallClick}
         className={cn(
           "fixed bottom-4 right-4 z-40",
-          "h-9 px-3 rounded-full",
+          "h-10 px-4 rounded-full",
           "bg-purple-600 hover:bg-purple-500",
           "shadow-lg shadow-purple-900/30",
           "flex items-center gap-1.5",
