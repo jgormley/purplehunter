@@ -15,9 +15,12 @@ declare global {
   }
 }
 
-export function AddToHomeScreen() {
+interface AddToHomeScreenProps {
+  onModalChange?: (isOpen: boolean) => void
+}
+
+export function AddToHomeScreen({ onModalChange }: AddToHomeScreenProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [showButton, setShowButton] = useState(false)
   const [showIOSInstructions, setShowIOSInstructions] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
@@ -34,17 +37,10 @@ export function AddToHomeScreen() {
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream
     setIsIOS(iOS)
 
-    if (iOS) {
-      // Show button for iOS after a short delay
-      const timer = setTimeout(() => setShowButton(true), 2000)
-      return () => clearTimeout(timer)
-    }
-
     // Listen for the beforeinstallprompt event (Chrome, Edge, etc.)
     const handleBeforeInstall = (e: BeforeInstallPromptEvent) => {
       e.preventDefault()
       setDeferredPrompt(e)
-      setShowButton(true)
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstall)
@@ -57,30 +53,28 @@ export function AddToHomeScreen() {
   const handleInstallClick = async () => {
     if (isIOS) {
       setShowIOSInstructions(true)
+      onModalChange?.(true)
       return
     }
 
     if (!deferredPrompt) return
 
     await deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    
-    if (outcome === "accepted") {
-      setShowButton(false)
-    }
+    await deferredPrompt.userChoice
     setDeferredPrompt(null)
   }
 
   const closeIOSInstructions = () => {
     setShowIOSInstructions(false)
+    onModalChange?.(false)
   }
 
-  // Don't render if already installed or not showing
-  if (isStandalone || !showButton) return null
+  // Don't render if already installed
+  if (isStandalone) return null
 
   return (
     <>
-      {/* Floating Install Button */}
+      {/* Floating Install Button - fixed to viewport */}
       <button
         onClick={handleInstallClick}
         className={cn(
