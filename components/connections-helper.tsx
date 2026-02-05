@@ -12,7 +12,8 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 import { Shuffle, RotateCcw, RefreshCw, Calendar, Info } from "lucide-react"
-import { cn } from "@/lib/utils" // Import the useLongPress hook
+import { cn } from "@/lib/utils"
+import { AddToHomeScreen } from "@/components/add-to-home-screen"
 
 declare global {
   interface Window {
@@ -574,6 +575,9 @@ export function ConnectionsHelper() {
           }
         }}
       />
+
+      {/* Add to Home Screen Button */}
+      <AddToHomeScreen />
       </div>
     </div>
   )
