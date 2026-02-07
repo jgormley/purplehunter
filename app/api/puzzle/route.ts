@@ -74,11 +74,17 @@ async function fetchFromNYT(date: string): Promise<PuzzleData | null> {
       return null
     }
 
-    const data: NYTPuzzleResponse = await response.json()
+    const data = await response.json()
+
+    // Debug: log the raw response to see the full structure for picture puzzles
+    console.log("[v0] Raw NYT API response keys:", JSON.stringify(Object.keys(data)))
+    console.log("[v0] First category:", JSON.stringify(data.categories?.[0]))
+    console.log("[v0] First card:", JSON.stringify(data.categories?.[0]?.cards?.[0]))
+    console.log("[v0] Full raw response:", JSON.stringify(data).substring(0, 2000))
 
     // Collect all cards and sort by position for correct grid order
     const allCards: NYTCard[] = []
-    for (const category of data.categories) {
+    for (const category of (data as NYTPuzzleResponse).categories) {
       allCards.push(...category.cards)
     }
     
