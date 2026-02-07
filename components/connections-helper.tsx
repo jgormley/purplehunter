@@ -51,6 +51,7 @@ interface PuzzleData {
   id: number
   date: string
   words: string[]
+  imageMap?: Record<string, string>
 }
 
 function ColorButton({ 
@@ -172,6 +173,7 @@ export function ConnectionsHelper() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [showInfo, setShowInfo] = useState(false)
   const [showInstallModal, setShowInstallModal] = useState(false)
+  const [imageMap, setImageMap] = useState<Record<string, string> | null>(null)
   // Track one-away words with their original color for unique indicators
   const [oneAwayWords, setOneAwayWords] = useState<Map<string, CategoryColor>>(new Map())
   // Track which colors have been reported as complete to avoid duplicate events
@@ -196,6 +198,7 @@ export function ConnectionsHelper() {
         setPuzzleDate(data.date)
         setPuzzleId(data.id)
         setEditText(data.words.join("\n"))
+        setImageMap(data.imageMap || null)
       } else {
         throw new Error("Invalid puzzle data")
       }
@@ -253,6 +256,7 @@ export function ConnectionsHelper() {
     setWordColors({})
     setPuzzleDate(null)
     setPuzzleId(null)
+    setImageMap(null)
     setIsEditing(false)
   }, [editText])
 
@@ -462,11 +466,13 @@ export function ConnectionsHelper() {
           const oneAwayColor = oneAwayWords.get(word)
           const oneAwayConfig = oneAwayColor ? CATEGORY_COLORS[oneAwayColor] : null
           
+          const imageUrl = imageMap?.[word]
+          
           return (
             <button
               key={`${word}-${index}`}
               onClick={() => handleWordClick(word)}
-              className="aspect-square rounded-lg font-bold text-xs sm:text-sm flex items-center justify-center p-1 transition-all active:scale-95 select-none relative"
+              className="aspect-square rounded-lg font-bold text-xs sm:text-sm flex items-center justify-center p-1 transition-all active:scale-95 select-none relative overflow-hidden"
               style={{ 
                 backgroundColor: bgColor, 
                 color: textColor,
@@ -474,7 +480,17 @@ export function ConnectionsHelper() {
                 boxShadow: oneAwayConfig ? `inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : undefined,
               }}
             >
-              <span className="text-center break-words leading-tight">{word}</span>
+              {imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={imageUrl}
+                  alt={word}
+                  className="w-[75%] h-[75%] object-contain pointer-events-none"
+                  draggable={false}
+                />
+              ) : (
+                <span className="text-center break-words leading-tight">{word}</span>
+              )}
               {oneAwayConfig && (
                 <span 
                   className="absolute top-1 right-1 w-2 h-2 rounded-full" 
