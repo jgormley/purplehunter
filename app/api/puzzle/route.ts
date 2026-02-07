@@ -9,7 +9,9 @@ function getNYTApiUrl(date: string) {
 const GITHUB_ARCHIVE = "https://raw.githubusercontent.com/Eyefyre/NYT-Connections-Answers/main/connections.json"
 
 interface NYTCard {
-  content: string
+  content?: string
+  image_url?: string
+  image_alt_text?: string
   position: number
 }
 
@@ -38,6 +40,7 @@ export interface PuzzleData {
   id: number
   date: string
   words: string[]
+  imageMap?: Record<string, string> // maps word (alt text) to image URL
 }
 
 // Get today's date in ET timezone (where NYT publishes)
@@ -74,27 +77,42 @@ async function fetchFromNYT(date: string): Promise<PuzzleData | null> {
       return null
     }
 
-    const data = await response.json()
-
-    // Debug: log the raw response to see the full structure for picture puzzles
-    console.log("[v0] Raw NYT API response keys:", JSON.stringify(Object.keys(data)))
-    console.log("[v0] First category:", JSON.stringify(data.categories?.[0]))
-    console.log("[v0] First card:", JSON.stringify(data.categories?.[0]?.cards?.[0]))
-    console.log("[v0] Full raw response:", JSON.stringify(data).substring(0, 2000))
+    const data: NYTPuzzleResponse = await response.json()
 
     // Collect all cards and sort by position for correct grid order
     const allCards: NYTCard[] = []
-    for (const category of (data as NYTPuzzleResponse).categories) {
+    for (const category of data.categories) {
       allCards.push(...category.cards)
     }
     
     allCards.sort((a, b) => a.position - b.position)
-    const words = allCards.map((card) => card.content.toUpperCase())
+
+    // Check if this is a picture puzzle (cards have image_url instead of content)
+    const isPicturePuzzle = allCards.some(card => card.image_url)
+
+    const words = allCards.map((card) => {
+      if (isPicturePuzzle && card.image_alt_text) {
+        return card.image_alt_text.toUpperCase()
+      }
+      return (card.content || card.image_alt_text || "").toUpperCase()
+    })
+
+    // Build image map for picture puzzles
+    let imageMap: Record<string, string> | undefined
+    if (isPicturePuzzle) {
+      imageMap = {}
+      for (const card of allCards) {
+        if (card.image_url && card.image_alt_text) {
+          imageMap[card.image_alt_text.toUpperCase()] = card.image_url
+        }
+      }
+    }
 
     return {
       id: calculatePuzzleNumber(data.print_date),
       date: data.print_date,
       words,
+      imageMap,
     }
   } catch {
     return null
