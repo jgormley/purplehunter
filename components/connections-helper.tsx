@@ -467,12 +467,13 @@ export function ConnectionsHelper() {
           const oneAwayConfig = oneAwayColor ? CATEGORY_COLORS[oneAwayColor] : null
           
           const imageUrl = imageMap?.[word]
+          const fontSize = word.length > 10 ? "text-[9px] sm:text-xs" : word.length > 7 ? "text-[10px] sm:text-xs" : "text-xs sm:text-sm"
           
           return (
             <button
               key={`${word}-${index}`}
               onClick={() => handleWordClick(word)}
-              className="aspect-square rounded-lg font-bold text-xs sm:text-sm flex items-center justify-center p-1 transition-all active:scale-95 select-none relative overflow-hidden"
+              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 transition-all active:scale-95 select-none relative overflow-hidden`}
               style={{ 
                 backgroundColor: bgColor, 
                 color: textColor,
