@@ -167,7 +167,8 @@ export function ConnectionsHelper() {
   const [selectedColor, setSelectedColor] = useState<CategoryColor>("yellow")
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState(DEFAULT_WORDS.join("\n"))
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isShuffling, setIsShuffling] = useState(false)
   const [puzzleLoaded, setPuzzleLoaded] = useState(false)
   const [puzzleDate, setPuzzleDate] = useState<string | null>(null)
   const [puzzleId, setPuzzleId] = useState<number | null>(null)
@@ -229,14 +230,19 @@ export function ConnectionsHelper() {
   }, [selectedColor])
 
   const shuffleWords = useCallback(() => {
-    setWords(prev => {
-      const shuffled = [...prev]
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-      }
-      return shuffled
-    })
+    setIsShuffling(true)
+    // Small delay to show loading state
+    setTimeout(() => {
+      setWords(prev => {
+        const shuffled = [...prev]
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+        }
+        return shuffled
+      })
+      setIsShuffling(false)
+    }, 300)
   }, [])
 
   const clearAll = useCallback(() => {
@@ -364,6 +370,9 @@ export function ConnectionsHelper() {
     )
   }
 
+  // Loading state for grid overlay (only for page load/refresh, not shuffle)
+  const showGridLoading = isLoading
+
   return (
     <div className="min-h-screen bg-[#121212] text-white p-4 flex flex-col items-center">
       <div className="w-full max-w-md flex flex-col">
@@ -412,13 +421,7 @@ export function ConnectionsHelper() {
         </div>
       )}
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center gap-2 mb-3 text-gray-400">
-          <RefreshCw className="w-4 h-4 animate-spin" />
-          <span className="text-sm">Loading today&apos;s puzzle...</span>
-        </div>
-      )}
+
 
       {/* Color Selector with Counts */}
       <div className="flex justify-center gap-2 mb-3">
@@ -461,7 +464,18 @@ export function ConnectionsHelper() {
       </div>
 
       {/* Word Grid */}
-      <div className="grid grid-cols-4 gap-2 mb-3" style={{ perspective: "1000px" }}>
+      <div className="relative mb-3">
+        {/* Loading Overlay on Grid */}
+        {showGridLoading && (
+          <div className="absolute inset-0 bg-[#121212]/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center rounded-lg">
+            <RefreshCw className="w-6 h-6 text-white animate-spin mb-2" />
+            <p className="text-sm font-medium text-white">Loading puzzle...</p>
+          </div>
+        )}
+        <div className={cn(
+          "grid grid-cols-4 gap-2 transition-opacity duration-200",
+          showGridLoading && "opacity-40"
+        )} style={{ perspective: "1000px" }}>
         {words.map((word, index) => {
           const color = wordColors[word]
           const bgColor = color ? CATEGORY_COLORS[color].bg : "#d4d4c8"
@@ -489,16 +503,18 @@ export function ConnectionsHelper() {
                 animationDelay,
               }}
             >
-              {imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imageUrl}
-                  alt={word}
-                  className="w-[75%] h-[75%] object-contain pointer-events-none"
-                  draggable={false}
-                />
-              ) : (
-                <span className="text-center break-words leading-tight">{word}</span>
+              {!isLoading && (
+                imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imageUrl}
+                    alt={word}
+                    className="w-[75%] h-[75%] object-contain pointer-events-none"
+                    draggable={false}
+                  />
+                ) : (
+                  <span className="text-center break-words leading-tight">{word}</span>
+                )
               )}
               {oneAwayConfig && (
                 <span 
@@ -509,6 +525,7 @@ export function ConnectionsHelper() {
             </button>
           )
         })}
+        </div>
       </div>
 
       {/* Action Buttons */}
@@ -518,8 +535,9 @@ export function ConnectionsHelper() {
             trackEvent("click_shuffle_button")
             shuffleWords()
           }}
+          disabled={isShuffling || showGridLoading}
           variant="outline"
-          className="flex-1 h-12 border-white/30 text-white hover:bg-white/10 bg-transparent"
+          className="flex-1 h-12 border-white/30 text-white hover:bg-white/10 bg-transparent disabled:opacity-50"
         >
           <Shuffle className="w-4 h-4 mr-2" />
           Shuffle
