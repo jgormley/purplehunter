@@ -1,8 +1,9 @@
 "use client"
 
 import React from "react"
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import Script from "next/script"
+import { motion, AnimatePresence } from "motion/react"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -52,6 +53,11 @@ interface PuzzleData {
   date: string
   words: string[]
   imageMap?: Record<string, string>
+}
+
+interface Tile {
+  id: string    // Stable unique ID for animation tracking
+  word: string  // The word content
 }
 
 function ColorButton({ 
@@ -161,8 +167,16 @@ function ColorButton({
   )
 }
 
+// Helper to create tiles with stable IDs
+function createTiles(words: string[]): Tile[] {
+  return words.map((word, index) => ({
+    id: `tile-${index}`,
+    word,
+  }))
+}
+
 export function ConnectionsHelper() {
-  const [words, setWords] = useState<string[]>(Array(16).fill(""))
+  const [tiles, setTiles] = useState<Tile[]>(() => createTiles(Array(16).fill("")))
   const [wordColors, setWordColors] = useState<Record<string, CategoryColor | null>>({})
   const [selectedColor, setSelectedColor] = useState<CategoryColor>("yellow")
   const [isEditing, setIsEditing] = useState(false)
@@ -197,7 +211,7 @@ export function ConnectionsHelper() {
       const data: PuzzleData = await response.json()
       
       if (data.words && data.words.length === 16) {
-        setWords(data.words)
+        setTiles(createTiles(data.words))
         setWordColors({})
         setPuzzleDate(data.date)
         setPuzzleId(data.id)
@@ -234,18 +248,19 @@ export function ConnectionsHelper() {
   const shuffleWords = useCallback(() => {
     setShouldAnimateFlip(false)
     setIsShuffling(true)
-    // Small delay to show loading state
+    // Shuffle the tiles array (keeping stable IDs so motion can track position changes)
+    setTiles(prev => {
+      const shuffled = [...prev]
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+      }
+      return shuffled
+    })
+    // Small delay before re-enabling shuffle button
     setTimeout(() => {
-      setWords(prev => {
-        const shuffled = [...prev]
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1))
-          ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-        }
-        return shuffled
-      })
       setIsShuffling(false)
-    }, 300)
+    }, 500)
   }, [])
 
   const clearAll = useCallback(() => {
@@ -263,7 +278,7 @@ export function ConnectionsHelper() {
       newWords.push(`WORD${newWords.length + 1}`)
     }
     
-    setWords(newWords)
+    setTiles(createTiles(newWords))
     setWordColors({})
     setPuzzleDate(null)
     setPuzzleId(null)
@@ -479,7 +494,8 @@ export function ConnectionsHelper() {
           "grid grid-cols-4 gap-2 transition-opacity duration-200",
           showGridLoading && "opacity-40"
         )} style={{ perspective: "1000px" }}>
-        {words.map((word, index) => {
+        {tiles.map((tile, index) => {
+          const { id, word } = tile
           const color = wordColors[word]
           const bgColor = color ? CATEGORY_COLORS[color].bg : "#d4d4c8"
           const textColor = color ? CATEGORY_COLORS[color].text : "#1a1a1a"
@@ -489,16 +505,21 @@ export function ConnectionsHelper() {
           const imageUrl = imageMap?.[word]
           const fontSize = word.length > 10 ? "text-[9px] sm:text-xs" : word.length > 7 ? "text-[10px] sm:text-xs" : "text-xs sm:text-sm"
           
-// Calculate staggered animation delay based on position in grid (only for page load/refresh, not shuffle)
-  const shouldAnimate = puzzleLoaded && shouldAnimateFlip
-  const animationDelay = shouldAnimate ? `${index * 30}ms` : "0ms"
-  const animationClass = shouldAnimate ? "animate-flip-in" : ""
+          // Calculate staggered animation delay based on position in grid (only for page load/refresh, not shuffle)
+          const shouldAnimate = puzzleLoaded && shouldAnimateFlip
+          const animationDelay = shouldAnimate ? `${index * 30}ms` : "0ms"
+          const animationClass = shouldAnimate ? "animate-flip-in" : ""
           
           return (
-            <button
-              key={`${word}-${index}`}
+            <motion.button
+              key={id}
+              layoutId={id}
+              layout
+              transition={{
+                layout: { type: "spring", stiffness: 300, damping: 30 }
+              }}
               onClick={() => handleWordClick(word)}
-              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 transition-all active:scale-95 select-none relative overflow-hidden ${animationClass}`}
+              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 active:scale-95 select-none relative overflow-hidden ${animationClass}`}
               style={{ 
                 backgroundColor: bgColor, 
                 color: textColor,
@@ -526,7 +547,7 @@ export function ConnectionsHelper() {
                   style={{ backgroundColor: oneAwayConfig.oneAwayDot }}
                 />
               )}
-            </button>
+            </motion.button>
           )
         })}
         </div>
