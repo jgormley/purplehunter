@@ -195,18 +195,18 @@ export function ConnectionsHelper() {
   const [oneAwayWords, setOneAwayWords] = useState<Map<string, CategoryColor>>(new Map())
   // Track which colors have been reported as complete to avoid duplicate events
   const [reportedCompleteColors, setReportedCompleteColors] = useState<Set<CategoryColor>>(new Set())
-  // Track drag offsets for each tile (resets on shuffle/refresh)
-  const [dragOffsets, setDragOffsets] = useState<Record<string, { x: number; y: number }>>({})
   // Track which tile is currently being dragged
   const [draggingTileId, setDraggingTileId] = useState<string | null>(null)
   // Track if we just finished dragging (to prevent click after drag)
   const justDraggedRef = useRef<boolean>(false)
+  // Key to force reset of drag positions (incremented on shuffle/refresh)
+  const [dragResetKey, setDragResetKey] = useState(0)
 
   const fetchTodaysPuzzle = useCallback(async () => {
     setIsLoading(true)
     setFetchError(null)
     setShouldAnimateFlip(true)
-    setDragOffsets({}) // Reset drag positions
+    setDragResetKey(k => k + 1) // Reset drag positions
     
     try {
       const response = await fetch("/api/puzzle")
@@ -254,7 +254,7 @@ export function ConnectionsHelper() {
 
   const shuffleWords = useCallback(() => {
     setShouldAnimateFlip(false)
-    setDragOffsets({}) // Reset drag positions - tiles animate back to grid
+    setDragResetKey(k => k + 1) // Reset drag positions - tiles animate back to grid
     setIsShuffling(true)
     // Shuffle the tiles array (keeping stable IDs so motion can track position changes)
     setTiles(prev => {
@@ -518,44 +518,35 @@ export function ConnectionsHelper() {
           const animationDelay = shouldAnimate ? `${index * 30}ms` : "0ms"
           const animationClass = shouldAnimate ? "animate-flip-in" : ""
           
-          // Get current drag offset for this tile
-          const dragOffset = dragOffsets[id] || { x: 0, y: 0 }
           const isDragging = draggingTileId === id
           
           return (
             <motion.button
-              key={id}
-              layoutId={id}
-              layout
+              key={`${id}-${dragResetKey}`}
+              layoutId={`${id}-${dragResetKey}`}
+              layout="position"
               drag
               dragMomentum={false}
               dragElastic={0}
+              dragConstraints={false}
+              initial={false}
               animate={{
-                x: dragOffset.x,
-                y: dragOffset.y,
                 scale: isDragging ? 1.05 : 1,
-                zIndex: isDragging ? 50 : 1,
+              }}
+              whileDrag={{
+                scale: 1.05,
+                zIndex: 50,
               }}
               transition={{
                 layout: { type: "spring", stiffness: 300, damping: 30 },
-                x: { type: "spring", stiffness: 500, damping: 30 },
-                y: { type: "spring", stiffness: 500, damping: 30 },
                 scale: { duration: 0.15 },
               }}
               onDragStart={() => {
                 setDraggingTileId(id)
                 justDraggedRef.current = true
               }}
-              onDragEnd={(_, info) => {
+              onDragEnd={() => {
                 setDraggingTileId(null)
-                // Store the final position offset
-                setDragOffsets(prev => ({
-                  ...prev,
-                  [id]: {
-                    x: (prev[id]?.x || 0) + info.offset.x,
-                    y: (prev[id]?.y || 0) + info.offset.y,
-                  }
-                }))
                 // Reset drag flag after a short delay to prevent click
                 setTimeout(() => {
                   justDraggedRef.current = false
@@ -576,6 +567,7 @@ export function ConnectionsHelper() {
                   ? `0 10px 30px rgba(0,0,0,0.3)${oneAwayConfig ? `, inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : ''}`
                   : oneAwayConfig ? `inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : undefined,
                 animationDelay,
+                zIndex: isDragging ? 50 : 1,
               }}
             >
               {!isLoading && (
