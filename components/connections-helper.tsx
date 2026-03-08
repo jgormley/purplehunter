@@ -201,6 +201,9 @@ export function ConnectionsHelper() {
   const justDraggedRef = useRef<boolean>(false)
   // Key to force reset of drag positions (incremented on shuffle/refresh)
   const [dragResetKey, setDragResetKey] = useState(0)
+  // Track z-index for each tile (most recently dragged is highest)
+  const [tileZIndexes, setTileZIndexes] = useState<Record<string, number>>({})
+  const maxZIndexRef = useRef(1)
 
   const fetchTodaysPuzzle = useCallback(async () => {
     setIsLoading(true)
@@ -544,6 +547,12 @@ export function ConnectionsHelper() {
               onDragStart={() => {
                 setDraggingTileId(id)
                 justDraggedRef.current = true
+                // Increment max z-index and assign to this tile
+                maxZIndexRef.current += 1
+                setTileZIndexes(prev => ({
+                  ...prev,
+                  [id]: maxZIndexRef.current
+                }))
               }}
               onDragEnd={() => {
                 setDraggingTileId(null)
@@ -573,7 +582,7 @@ export function ConnectionsHelper() {
                   ? `0 10px 30px rgba(0,0,0,0.3)${oneAwayConfig ? `, inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : ''}`
                   : oneAwayConfig ? `inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : undefined,
                 animationDelay,
-                zIndex: isDragging ? 50 : 1,
+                zIndex: tileZIndexes[id] || 1,
               }}
             >
               {!isLoading && (
