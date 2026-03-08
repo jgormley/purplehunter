@@ -168,6 +168,7 @@ export function ConnectionsHelper() {
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState(DEFAULT_WORDS.join("\n"))
   const [isLoading, setIsLoading] = useState(false)
+  const [puzzleLoaded, setPuzzleLoaded] = useState(false)
   const [puzzleDate, setPuzzleDate] = useState<string | null>(null)
   const [puzzleId, setPuzzleId] = useState<number | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -199,6 +200,7 @@ export function ConnectionsHelper() {
         setPuzzleId(data.id)
         setEditText(data.words.join("\n"))
         setImageMap(data.imageMap || null)
+        setPuzzleLoaded(true)
       } else {
         throw new Error("Invalid puzzle data")
       }
@@ -256,6 +258,7 @@ export function ConnectionsHelper() {
     setWordColors({})
     setPuzzleDate(null)
     setPuzzleId(null)
+    setPuzzleLoaded(false)
     setImageMap(null)
     setIsEditing(false)
   }, [editText])
@@ -458,7 +461,7 @@ export function ConnectionsHelper() {
       </div>
 
       {/* Word Grid */}
-      <div className="grid grid-cols-4 gap-2 mb-3">
+      <div className="grid grid-cols-4 gap-2 mb-3" style={{ perspective: "1000px" }}>
         {words.map((word, index) => {
           const color = wordColors[word]
           const bgColor = color ? CATEGORY_COLORS[color].bg : "#d4d4c8"
@@ -469,16 +472,21 @@ export function ConnectionsHelper() {
           const imageUrl = imageMap?.[word]
           const fontSize = word.length > 10 ? "text-[9px] sm:text-xs" : word.length > 7 ? "text-[10px] sm:text-xs" : "text-xs sm:text-sm"
           
+          // Calculate staggered animation delay based on position in grid
+          const animationDelay = puzzleLoaded ? `${index * 30}ms` : "0ms"
+          const animationClass = puzzleLoaded ? "animate-flip-in" : ""
+          
           return (
             <button
               key={`${word}-${index}`}
               onClick={() => handleWordClick(word)}
-              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 transition-all active:scale-95 select-none relative overflow-hidden`}
+              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 transition-all active:scale-95 select-none relative overflow-hidden ${animationClass}`}
               style={{ 
                 backgroundColor: bgColor, 
                 color: textColor,
                 minHeight: "70px",
                 boxShadow: oneAwayConfig ? `inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : undefined,
+                animationDelay,
               }}
             >
               {imageUrl ? (
