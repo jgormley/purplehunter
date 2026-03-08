@@ -558,6 +558,12 @@ export function ConnectionsHelper() {
                   handleWordClick(word)
                 }
               }}
+              onAnimationEnd={() => {
+                // Clear the flip animation class after it completes so drag can work
+                if (shouldAnimateFlip && index === 15) {
+                  setShouldAnimateFlip(false)
+                }
+              }}
               className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 select-none relative overflow-hidden cursor-grab active:cursor-grabbing ${animationClass}`}
               style={{ 
                 backgroundColor: bgColor, 
