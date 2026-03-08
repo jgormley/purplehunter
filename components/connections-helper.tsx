@@ -365,7 +365,15 @@ export function ConnectionsHelper() {
   }
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white p-4 flex flex-col items-center">
+    <div className="min-h-screen bg-[#121212] text-white p-4 flex flex-col items-center relative">
+      {/* Full-page Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-[#121212]/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+          <RefreshCw className="w-8 h-8 text-white animate-spin mb-4" />
+          <p className="text-lg font-medium text-white">Loading puzzle...</p>
+        </div>
+      )}
+
       <div className="w-full max-w-md flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
@@ -412,13 +420,7 @@ export function ConnectionsHelper() {
         </div>
       )}
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center gap-2 mb-3 text-gray-400">
-          <RefreshCw className="w-4 h-4 animate-spin" />
-          <span className="text-sm">Loading today&apos;s puzzle...</span>
-        </div>
-      )}
+
 
       {/* Color Selector with Counts */}
       <div className="flex justify-center gap-2 mb-3">
