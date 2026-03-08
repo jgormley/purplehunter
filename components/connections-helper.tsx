@@ -169,10 +169,10 @@ export function ConnectionsHelper() {
   const [editText, setEditText] = useState(DEFAULT_WORDS.join("\n"))
   const [isLoading, setIsLoading] = useState(false)
   const [puzzleLoaded, setPuzzleLoaded] = useState(false)
-  const [animationKey, setAnimationKey] = useState(0)
-  const [isShuffling, setIsShuffling] = useState(false)
-  const [tileTransforms, setTileTransforms] = useState<Record<number, string>>({})
-  const tileRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const [isSlideShuffling, setIsSlideShuffling] = useState(false)
+  const [tileTransforms, setTileTransforms] = useState<Record<string, string>>({})
+  const wordPositionsRef = useRef<Map<string, DOMRect>>(new Map())
+  const tileRefsMap = useRef<Map<string, HTMLButtonElement | null>>(new Map())
   const [puzzleDate, setPuzzleDate] = useState<string | null>(null)
   const [puzzleId, setPuzzleId] = useState<number | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -211,7 +211,6 @@ export function ConnectionsHelper() {
         setImageMap(data.imageMap || null)
         // Small delay so React renders words before animation starts
         setTimeout(() => {
-          setAnimationKey(k => k + 1)
           setPuzzleLoaded(true)
         }, 50)
       } else {
@@ -241,43 +240,49 @@ export function ConnectionsHelper() {
   }, [selectedColor])
 
   const shuffleWords = useCallback(() => {
-    // FLIP technique: record positions BEFORE shuffle (First)
-    const firstRects = tileRefs.current.map(el => el?.getBoundingClientRect() ?? null)
+    // FLIP: First - capture current positions by word
+    const firstPositions = new Map<string, DOMRect>()
+    tileRefsMap.current.forEach((el, word) => {
+      if (el) {
+        firstPositions.set(word, el.getBoundingClientRect())
+      }
+    })
 
     setWords(prev => {
-      // Compute shuffled order (Last)
+      // Shuffle the array
       const shuffled = [...prev]
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1))
         ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
       }
 
-      // After React commits the new positions, compute deltas and animate (Invert + Play)
+      // After React commits, measure new positions and compute FLIP transforms
       requestAnimationFrame(() => {
-        const transforms: Record<number, string> = {}
-        tileRefs.current.forEach((el, newIndex) => {
+        const transforms: Record<string, string> = {}
+        tileRefsMap.current.forEach((el, word) => {
           if (!el) return
           const lastRect = el.getBoundingClientRect()
-          const firstRect = firstRects[newIndex]
+          const firstRect = firstPositions.get(word)
           if (!firstRect) return
           const dx = firstRect.left - lastRect.left
           const dy = firstRect.top - lastRect.top
           if (dx !== 0 || dy !== 0) {
-            transforms[newIndex] = `translate(${dx}px, ${dy}px)`
+            transforms[word] = `translate(${dx}px, ${dy}px)`
           }
         })
         setTileTransforms(transforms)
-        setIsShuffling(true)
+        setIsSlideShuffling(true)
 
-        // Next frame: clear the inverted transforms so CSS transition plays to final position
+        // Next frame: clear transforms so CSS transition animates to final position
         requestAnimationFrame(() => {
           setTileTransforms({})
-          setTimeout(() => setIsShuffling(false), 300)
+          setTimeout(() => setIsSlideShuffling(false), 300)
         })
       })
 
       return shuffled
     })
+  }, [])
   }, [])
 
   const clearAll = useCallback(() => {
@@ -522,20 +527,23 @@ export function ConnectionsHelper() {
           const imageUrl = imageMap?.[word]
           const fontSize = word.length > 10 ? "text-[9px] sm:text-xs" : word.length > 7 ? "text-[10px] sm:text-xs" : "text-xs sm:text-sm"
           
-          // Flip-in animation on load/refresh only (not shuffle)
+          // Flip-in animation only on initial load/refresh (not shuffle)
           const flipAnimationDelay = `${index * 30}ms`
-          const flipAnimationClass = puzzleLoaded && !isShuffling ? "animate-flip-in" : ""
+          const flipAnimationClass = puzzleLoaded && !isSlideShuffling ? "animate-flip-in" : ""
 
           // FLIP slide transform during shuffle
-          const slideTransform = tileTransforms[index] ?? ""
-          const slideTransition = isShuffling ? "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)" : ""
+          const slideTransform = tileTransforms[word] ?? ""
+          const slideTransition = isSlideShuffling ? "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)" : ""
           
           return (
             <button
-              key={`${animationKey}-${index}`}
-              ref={el => { tileRefs.current[index] = el }}
+              key={word}
+              ref={el => { 
+                if (el) tileRefsMap.current.set(word, el)
+                else tileRefsMap.current.delete(word)
+              }}
               onClick={() => handleWordClick(word)}
-              disabled={isLoading || isShuffling}
+              disabled={isLoading || isSlideShuffling}
               className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 active:scale-95 select-none relative overflow-hidden ${flipAnimationClass}`}
               style={{ 
                 backgroundColor: bgColor, 
@@ -546,7 +554,7 @@ export function ConnectionsHelper() {
                 opacity: isLoading ? 0.4 : 1,
                 transform: slideTransform || undefined,
                 transition: slideTransition || undefined,
-                willChange: isShuffling ? "transform" : undefined,
+                willChange: isSlideShuffling ? "transform" : undefined,
               }}
             >
               {imageUrl ? (
