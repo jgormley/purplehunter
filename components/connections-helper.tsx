@@ -167,7 +167,8 @@ export function ConnectionsHelper() {
   const [selectedColor, setSelectedColor] = useState<CategoryColor>("yellow")
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState(DEFAULT_WORDS.join("\n"))
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isShuffling, setIsShuffling] = useState(false)
   const [puzzleLoaded, setPuzzleLoaded] = useState(false)
   const [puzzleDate, setPuzzleDate] = useState<string | null>(null)
   const [puzzleId, setPuzzleId] = useState<number | null>(null)
@@ -229,14 +230,19 @@ export function ConnectionsHelper() {
   }, [selectedColor])
 
   const shuffleWords = useCallback(() => {
-    setWords(prev => {
-      const shuffled = [...prev]
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-      }
-      return shuffled
-    })
+    setIsShuffling(true)
+    // Small delay to show loading state
+    setTimeout(() => {
+      setWords(prev => {
+        const shuffled = [...prev]
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+        }
+        return shuffled
+      })
+      setIsShuffling(false)
+    }, 300)
   }, [])
 
   const clearAll = useCallback(() => {
@@ -364,16 +370,12 @@ export function ConnectionsHelper() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-[#121212] text-white p-4 flex flex-col items-center relative">
-      {/* Full-page Loading Overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 bg-[#121212]/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-          <RefreshCw className="w-8 h-8 text-white animate-spin mb-4" />
-          <p className="text-lg font-medium text-white">Loading puzzle...</p>
-        </div>
-      )}
+  // Combined loading state for grid overlay
+  const showGridLoading = isLoading || isShuffling
+  const loadingText = isLoading ? "Loading puzzle..." : "Shuffling..."
 
+  return (
+    <div className="min-h-screen bg-[#121212] text-white p-4 flex flex-col items-center">
       <div className="w-full max-w-md flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
@@ -463,7 +465,18 @@ export function ConnectionsHelper() {
       </div>
 
       {/* Word Grid */}
-      <div className="grid grid-cols-4 gap-2 mb-3" style={{ perspective: "1000px" }}>
+      <div className="relative mb-3">
+        {/* Loading Overlay on Grid */}
+        {showGridLoading && (
+          <div className="absolute inset-0 bg-[#121212]/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center rounded-lg">
+            <RefreshCw className="w-6 h-6 text-white animate-spin mb-2" />
+            <p className="text-sm font-medium text-white">{loadingText}</p>
+          </div>
+        )}
+        <div className={cn(
+          "grid grid-cols-4 gap-2 transition-opacity duration-200",
+          showGridLoading && "opacity-40"
+        )} style={{ perspective: "1000px" }}>
         {words.map((word, index) => {
           const color = wordColors[word]
           const bgColor = color ? CATEGORY_COLORS[color].bg : "#d4d4c8"
@@ -511,6 +524,7 @@ export function ConnectionsHelper() {
             </button>
           )
         })}
+        </div>
       </div>
 
       {/* Action Buttons */}
@@ -520,10 +534,11 @@ export function ConnectionsHelper() {
             trackEvent("click_shuffle_button")
             shuffleWords()
           }}
+          disabled={showGridLoading}
           variant="outline"
-          className="flex-1 h-12 border-white/30 text-white hover:bg-white/10 bg-transparent"
+          className="flex-1 h-12 border-white/30 text-white hover:bg-white/10 bg-transparent disabled:opacity-50"
         >
-          <Shuffle className="w-4 h-4 mr-2" />
+          <Shuffle className={cn("w-4 h-4 mr-2", isShuffling && "animate-spin")} />
           Shuffle
         </Button>
         <Button
