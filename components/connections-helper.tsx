@@ -171,7 +171,8 @@ export function ConnectionsHelper() {
   const [puzzleLoaded, setPuzzleLoaded] = useState(false)
   const [animationKey, setAnimationKey] = useState(0)
   const [isShuffling, setIsShuffling] = useState(false)
-  const shufflePendingRef = useRef<string[] | null>(null)
+  const [tileTransforms, setTileTransforms] = useState<Record<number, string>>({})
+  const tileRefs = useRef<(HTMLButtonElement | null)[]>([])
   const [puzzleDate, setPuzzleDate] = useState<string | null>(null)
   const [puzzleId, setPuzzleId] = useState<number | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -240,25 +241,43 @@ export function ConnectionsHelper() {
   }, [selectedColor])
 
   const shuffleWords = useCallback(() => {
+    // FLIP technique: record positions BEFORE shuffle (First)
+    const firstRects = tileRefs.current.map(el => el?.getBoundingClientRect() ?? null)
+
     setWords(prev => {
+      // Compute shuffled order (Last)
       const shuffled = [...prev]
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1))
         ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
       }
-      shufflePendingRef.current = shuffled
-      return prev // keep old words visible during flip-out
+
+      // After React commits the new positions, compute deltas and animate (Invert + Play)
+      requestAnimationFrame(() => {
+        const transforms: Record<number, string> = {}
+        tileRefs.current.forEach((el, newIndex) => {
+          if (!el) return
+          const lastRect = el.getBoundingClientRect()
+          const firstRect = firstRects[newIndex]
+          if (!firstRect) return
+          const dx = firstRect.left - lastRect.left
+          const dy = firstRect.top - lastRect.top
+          if (dx !== 0 || dy !== 0) {
+            transforms[newIndex] = `translate(${dx}px, ${dy}px)`
+          }
+        })
+        setTileTransforms(transforms)
+        setIsShuffling(true)
+
+        // Next frame: clear the inverted transforms so CSS transition plays to final position
+        requestAnimationFrame(() => {
+          setTileTransforms({})
+          setTimeout(() => setIsShuffling(false), 300)
+        })
+      })
+
+      return shuffled
     })
-    // Flip out, swap words, flip in
-    setIsShuffling(true)
-    setTimeout(() => {
-      if (shufflePendingRef.current) {
-        setWords(shufflePendingRef.current)
-        shufflePendingRef.current = null
-      }
-      setIsShuffling(false)
-      setAnimationKey(k => k + 1)
-    }, 250)
   }, [])
 
   const clearAll = useCallback(() => {
@@ -503,27 +522,31 @@ export function ConnectionsHelper() {
           const imageUrl = imageMap?.[word]
           const fontSize = word.length > 10 ? "text-[9px] sm:text-xs" : word.length > 7 ? "text-[10px] sm:text-xs" : "text-xs sm:text-sm"
           
-          // Flip-in after load or shuffle; flip-out during shuffle
-          const animationDelay = `${index * 30}ms`
-          const animationClass = isShuffling
-            ? "animate-flip-out"
-            : puzzleLoaded
-            ? "animate-flip-in"
-            : ""
+          // Flip-in animation on load/refresh only (not shuffle)
+          const flipAnimationDelay = `${index * 30}ms`
+          const flipAnimationClass = puzzleLoaded && !isShuffling ? "animate-flip-in" : ""
+
+          // FLIP slide transform during shuffle
+          const slideTransform = tileTransforms[index] ?? ""
+          const slideTransition = isShuffling ? "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)" : ""
           
           return (
             <button
               key={`${animationKey}-${index}`}
+              ref={el => { tileRefs.current[index] = el }}
               onClick={() => handleWordClick(word)}
               disabled={isLoading || isShuffling}
-              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 transition-colors active:scale-95 select-none relative overflow-hidden ${animationClass}`}
+              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 active:scale-95 select-none relative overflow-hidden ${flipAnimationClass}`}
               style={{ 
                 backgroundColor: bgColor, 
                 color: textColor,
                 minHeight: "70px",
                 boxShadow: oneAwayConfig ? `inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : undefined,
-                animationDelay,
+                animationDelay: flipAnimationDelay,
                 opacity: isLoading ? 0.4 : 1,
+                transform: slideTransform || undefined,
+                transition: slideTransition || undefined,
+                willChange: isShuffling ? "transform" : undefined,
               }}
             >
               {imageUrl ? (
