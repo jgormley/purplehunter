@@ -195,11 +195,21 @@ export function ConnectionsHelper() {
   const [oneAwayWords, setOneAwayWords] = useState<Map<string, CategoryColor>>(new Map())
   // Track which colors have been reported as complete to avoid duplicate events
   const [reportedCompleteColors, setReportedCompleteColors] = useState<Set<CategoryColor>>(new Set())
+  // Track which tile is currently being dragged
+  const [draggingTileId, setDraggingTileId] = useState<string | null>(null)
+  // Track if we just finished dragging (to prevent click after drag)
+  const justDraggedRef = useRef<boolean>(false)
+  // Key to force reset of drag positions (incremented on shuffle/refresh)
+  const [dragResetKey, setDragResetKey] = useState(0)
+  // Track z-index for each tile (most recently dragged is highest)
+  const [tileZIndexes, setTileZIndexes] = useState<Record<string, number>>({})
+  const maxZIndexRef = useRef(1)
 
   const fetchTodaysPuzzle = useCallback(async () => {
     setIsLoading(true)
     setFetchError(null)
     setShouldAnimateFlip(true)
+    setDragResetKey(k => k + 1) // Reset drag positions
     
     try {
       const response = await fetch("/api/puzzle")
@@ -247,6 +257,7 @@ export function ConnectionsHelper() {
 
   const shuffleWords = useCallback(() => {
     setShouldAnimateFlip(false)
+    setDragResetKey(k => k + 1) // Reset drag positions - tiles animate back to grid
     setIsShuffling(true)
     // Shuffle the tiles array (keeping stable IDs so motion can track position changes)
     setTiles(prev => {
@@ -510,22 +521,68 @@ export function ConnectionsHelper() {
           const animationDelay = shouldAnimate ? `${index * 30}ms` : "0ms"
           const animationClass = shouldAnimate ? "animate-flip-in" : ""
           
+          const isDragging = draggingTileId === id
+          
           return (
             <motion.button
-              key={id}
-              layoutId={id}
-              layout
-              transition={{
-                layout: { type: "spring", stiffness: 300, damping: 30 }
+              key={`${id}-${dragResetKey}`}
+              layoutId={`${id}-${dragResetKey}`}
+              layout="position"
+              drag
+              dragMomentum={false}
+              dragElastic={0}
+              dragConstraints={false}
+              initial={false}
+              animate={{
+                scale: isDragging ? 1.05 : 1,
               }}
-              onClick={() => handleWordClick(word)}
-              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 active:scale-95 select-none relative overflow-hidden ${animationClass}`}
+              whileDrag={{
+                scale: 1.05,
+                zIndex: 50,
+              }}
+              transition={{
+                layout: { type: "spring", stiffness: 300, damping: 30 },
+                scale: { duration: 0.15 },
+              }}
+              onDragStart={() => {
+                setDraggingTileId(id)
+                justDraggedRef.current = true
+                // Increment max z-index and assign to this tile
+                maxZIndexRef.current += 1
+                setTileZIndexes(prev => ({
+                  ...prev,
+                  [id]: maxZIndexRef.current
+                }))
+              }}
+              onDragEnd={() => {
+                setDraggingTileId(null)
+                // Reset drag flag after a short delay to prevent click
+                setTimeout(() => {
+                  justDraggedRef.current = false
+                }, 50)
+              }}
+              onClick={() => {
+                // Only trigger click if we didn't just drag
+                if (!justDraggedRef.current) {
+                  handleWordClick(word)
+                }
+              }}
+              onAnimationEnd={() => {
+                // Clear the flip animation class after it completes so drag can work
+                if (shouldAnimateFlip && index === 15) {
+                  setShouldAnimateFlip(false)
+                }
+              }}
+              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 select-none relative overflow-hidden cursor-grab active:cursor-grabbing ${animationClass}`}
               style={{ 
                 backgroundColor: bgColor, 
                 color: textColor,
                 minHeight: "70px",
-                boxShadow: oneAwayConfig ? `inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : undefined,
+                boxShadow: isDragging 
+                  ? `0 10px 30px rgba(0,0,0,0.3)${oneAwayConfig ? `, inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : ''}`
+                  : oneAwayConfig ? `inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : undefined,
                 animationDelay,
+                zIndex: tileZIndexes[id] || 1,
               }}
             >
               {!isLoading && (
@@ -596,7 +653,10 @@ export function ConnectionsHelper() {
                   <p><span className="text-purple-400">Purple</span> is the sneaky one - puns, wordplay, misdirection.</p>
                 </div>
                 <p className="text-sm text-gray-400 border-t border-gray-700 pt-3">
-                  Tap colors to select, tap words to mark, and shuffle to spot new patterns. <span className="text-orange-400">Long-press a color</span> to mark it as "one away" - the indicator stays on those tiles to help you remember. Happy hunting!
+                  Tap colors to select, tap words to mark, and shuffle to spot new patterns. <span className="text-orange-400">Long-press a color</span> to mark it as "one away" - the indicator stays on those tiles to help you remember.
+                </p>
+                <p className="text-sm text-gray-400 border-t border-gray-700 pt-3">
+                  <span className="text-cyan-400">Drag tiles</span> anywhere on the screen to visually group words you think belong together. Hit Shuffle or Refresh to snap them back to the grid. Happy hunting!
                 </p>
               </div>
             </SheetDescription>
