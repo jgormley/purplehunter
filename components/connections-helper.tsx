@@ -125,26 +125,24 @@ function DraggableTile({
     
     baseOffsetRef.current = { x: 0, y: 0 }
     
-    // Animate back to origin using spring physics
-    const springConfig = { stiffness: 300, damping: 30 }
+    // Animate back to origin - fast decay animation
     const currentX = x.get()
     const currentY = y.get()
-    
-    // Simple spring animation
+    const duration = 300 // ms
     let startTime: number | null = null
+    
     const animate = (time: number) => {
       if (startTime === null) startTime = time
-      const elapsed = (time - startTime) / 1000
+      const elapsed = time - startTime
+      const progress = Math.min(elapsed / duration, 1)
       
-      // Damped spring approximation
-      const decay = Math.exp(-springConfig.damping * elapsed / 10)
-      const newX = currentX * decay
-      const newY = currentY * decay
+      // Ease out cubic for snappy feel
+      const eased = 1 - Math.pow(1 - progress, 3)
       
-      x.set(newX)
-      y.set(newY)
+      x.set(currentX * (1 - eased))
+      y.set(currentY * (1 - eased))
       
-      if (Math.abs(newX) > 0.5 || Math.abs(newY) > 0.5) {
+      if (progress < 1) {
         requestAnimationFrame(animate)
       } else {
         x.set(0)
@@ -440,6 +438,8 @@ export function ConnectionsHelper() {
   const shuffleWords = useCallback(() => {
     setShouldAnimateFlip(false)
     setResetTrigger(k => k + 1) // Reset drag positions
+    setTileZIndexes({}) // Reset z-indexes
+    maxZIndexRef.current = 1
     setIsShuffling(true)
     // Shuffle the tiles array (keeping stable IDs so motion can track position changes)
     setTiles(prev => {
