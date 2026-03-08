@@ -107,17 +107,54 @@ function DraggableTile({
   const x = useMotionValue(0)
   const y = useMotionValue(0)
   
-  // Spring-animated versions for smooth reset
-  const springX = useSpring(x, { stiffness: 300, damping: 30 })
-  const springY = useSpring(y, { stiffness: 300, damping: 30 })
+  // Track the base offset (where the tile should be when not actively dragging)
+  const baseOffsetRef = useRef({ x: 0, y: 0 })
   
   // Track if we just dragged (to prevent click after drag)
   const justDraggedRef = useRef(false)
   
+  // Track if this is the first render (to skip animation on mount)
+  const isFirstRender = useRef(true)
+  
   // Reset position when resetTrigger changes
   useEffect(() => {
-    x.set(0)
-    y.set(0)
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    
+    baseOffsetRef.current = { x: 0, y: 0 }
+    
+    // Animate back to origin using spring physics
+    const springConfig = { stiffness: 300, damping: 30 }
+    const currentX = x.get()
+    const currentY = y.get()
+    
+    // Simple spring animation
+    let startTime: number | null = null
+    const animate = (time: number) => {
+      if (startTime === null) startTime = time
+      const elapsed = (time - startTime) / 1000
+      
+      // Damped spring approximation
+      const decay = Math.exp(-springConfig.damping * elapsed / 10)
+      const newX = currentX * decay
+      const newY = currentY * decay
+      
+      x.set(newX)
+      y.set(newY)
+      
+      if (Math.abs(newX) > 0.5 || Math.abs(newY) > 0.5) {
+        requestAnimationFrame(animate)
+      } else {
+        x.set(0)
+        y.set(0)
+      }
+    }
+    
+    if (currentX !== 0 || currentY !== 0) {
+      requestAnimationFrame(animate)
+    }
   }, [resetTrigger, x, y])
   
   return (
@@ -130,8 +167,8 @@ function DraggableTile({
       dragElastic={0}
       dragConstraints={false}
       style={{
-        x: springX,
-        y: springY,
+        x,
+        y,
         backgroundColor: bgColor,
         color: textColor,
         minHeight: "70px",
@@ -158,10 +195,16 @@ function DraggableTile({
         justDraggedRef.current = true
       }}
       onDrag={(_, info) => {
-        x.set(info.offset.x)
-        y.set(info.offset.y)
+        // Add current drag offset to base offset
+        x.set(baseOffsetRef.current.x + info.offset.x)
+        y.set(baseOffsetRef.current.y + info.offset.y)
       }}
-      onDragEnd={() => {
+      onDragEnd={(_, info) => {
+        // Store the final position as the new base offset
+        baseOffsetRef.current = {
+          x: baseOffsetRef.current.x + info.offset.x,
+          y: baseOffsetRef.current.y + info.offset.y,
+        }
         onDragEnd()
         setTimeout(() => {
           justDraggedRef.current = false
