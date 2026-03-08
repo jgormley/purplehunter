@@ -177,6 +177,7 @@ function createTiles(words: string[]): Tile[] {
 
 export function ConnectionsHelper() {
   const [tiles, setTiles] = useState<Tile[]>(() => createTiles(Array(16).fill("")))
+  const [originalTiles, setOriginalTiles] = useState<Tile[]>(() => createTiles(Array(16).fill("")))
   const [wordColors, setWordColors] = useState<Record<string, CategoryColor | null>>({})
   const [selectedColor, setSelectedColor] = useState<CategoryColor>("yellow")
   const [isEditing, setIsEditing] = useState(false)
@@ -221,7 +222,9 @@ export function ConnectionsHelper() {
       const data: PuzzleData = await response.json()
       
       if (data.words && data.words.length === 16) {
-        setTiles(createTiles(data.words))
+        const newTiles = createTiles(data.words)
+        setTiles(newTiles)
+        setOriginalTiles(newTiles)
         setWordColors({})
         setPuzzleDate(data.date)
         setPuzzleId(data.id)
@@ -274,9 +277,14 @@ export function ConnectionsHelper() {
     }, 500)
   }, [])
 
-  const clearAll = useCallback(() => {
+  const resetAll = useCallback(() => {
     setWordColors({})
-  }, [])
+    setTiles(originalTiles) // Restore original tile order
+    setDragResetKey(k => k + 1) // Reset drag positions
+    setTileZIndexes({}) // Reset z-indexes
+    maxZIndexRef.current = 1
+    setOneAwayWords(new Map()) // Clear one-away indicators
+  }, [originalTiles])
 
   const handleSaveWords = useCallback(() => {
     const newWords = editText
@@ -289,7 +297,9 @@ export function ConnectionsHelper() {
       newWords.push(`WORD${newWords.length + 1}`)
     }
     
-    setTiles(createTiles(newWords))
+    const newTiles = createTiles(newWords)
+    setTiles(newTiles)
+    setOriginalTiles(newTiles)
     setWordColors({})
     setPuzzleDate(null)
     setPuzzleId(null)
@@ -626,14 +636,14 @@ export function ConnectionsHelper() {
         </Button>
         <Button
           onClick={() => {
-            trackEvent("click_clear_colors_button")
-            clearAll()
+            trackEvent("click_reset_button")
+            resetAll()
           }}
           variant="outline"
           className="flex-1 h-12 border-white/30 text-white hover:bg-white/10 bg-transparent"
         >
           <RotateCcw className="w-4 h-4 mr-2" />
-          Clear Colors
+          Reset
         </Button>
       </div>
 
