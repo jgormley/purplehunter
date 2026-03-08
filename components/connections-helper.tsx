@@ -283,7 +283,6 @@ export function ConnectionsHelper() {
       return shuffled
     })
   }, [])
-  }, [])
 
   const clearAll = useCallback(() => {
     setWordColors({})
