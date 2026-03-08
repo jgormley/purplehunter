@@ -370,9 +370,8 @@ export function ConnectionsHelper() {
     )
   }
 
-  // Combined loading state for grid overlay
-  const showGridLoading = isLoading || isShuffling
-  const loadingText = isLoading ? "Loading puzzle..." : "Shuffling..."
+  // Loading state for grid overlay (only for page load/refresh, not shuffle)
+  const showGridLoading = isLoading
 
   return (
     <div className="min-h-screen bg-[#121212] text-white p-4 flex flex-col items-center">
@@ -470,7 +469,7 @@ export function ConnectionsHelper() {
         {showGridLoading && (
           <div className="absolute inset-0 bg-[#121212]/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center rounded-lg">
             <RefreshCw className="w-6 h-6 text-white animate-spin mb-2" />
-            <p className="text-sm font-medium text-white">{loadingText}</p>
+            <p className="text-sm font-medium text-white">Loading puzzle...</p>
           </div>
         )}
         <div className={cn(
@@ -536,11 +535,11 @@ export function ConnectionsHelper() {
             trackEvent("click_shuffle_button")
             shuffleWords()
           }}
-          disabled={showGridLoading}
+          disabled={isShuffling || showGridLoading}
           variant="outline"
           className="flex-1 h-12 border-white/30 text-white hover:bg-white/10 bg-transparent disabled:opacity-50"
         >
-          <Shuffle className={cn("w-4 h-4 mr-2", isShuffling && "animate-spin")} />
+          <Shuffle className="w-4 h-4 mr-2" />
           Shuffle
         </Button>
         <Button
