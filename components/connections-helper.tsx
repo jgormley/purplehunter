@@ -504,16 +504,18 @@ export function ConnectionsHelper() {
                 animationDelay,
               }}
             >
-              {imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imageUrl}
-                  alt={word}
-                  className="w-[75%] h-[75%] object-contain pointer-events-none"
-                  draggable={false}
-                />
-              ) : (
-                <span className="text-center break-words leading-tight">{word}</span>
+              {!isShuffling && (
+                imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imageUrl}
+                    alt={word}
+                    className="w-[75%] h-[75%] object-contain pointer-events-none"
+                    draggable={false}
+                  />
+                ) : (
+                  <span className="text-center break-words leading-tight">{word}</span>
+                )
               )}
               {oneAwayConfig && (
                 <span 
