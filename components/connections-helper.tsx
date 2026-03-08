@@ -162,7 +162,7 @@ function ColorButton({
 }
 
 export function ConnectionsHelper() {
-  const [words, setWords] = useState<string[]>(DEFAULT_WORDS)
+  const [words, setWords] = useState<string[]>(Array(16).fill(""))
   const [wordColors, setWordColors] = useState<Record<string, CategoryColor | null>>({})
   const [selectedColor, setSelectedColor] = useState<CategoryColor>("yellow")
   const [isEditing, setIsEditing] = useState(false)
