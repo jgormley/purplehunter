@@ -170,6 +170,7 @@ export function ConnectionsHelper() {
   const [isLoading, setIsLoading] = useState(true)
   const [isShuffling, setIsShuffling] = useState(false)
   const [puzzleLoaded, setPuzzleLoaded] = useState(false)
+  const [shouldAnimateFlip, setShouldAnimateFlip] = useState(true)
   const [puzzleDate, setPuzzleDate] = useState<string | null>(null)
   const [puzzleId, setPuzzleId] = useState<number | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -184,6 +185,7 @@ export function ConnectionsHelper() {
   const fetchTodaysPuzzle = useCallback(async () => {
     setIsLoading(true)
     setFetchError(null)
+    setShouldAnimateFlip(true)
     
     try {
       const response = await fetch("/api/puzzle")
@@ -230,6 +232,7 @@ export function ConnectionsHelper() {
   }, [selectedColor])
 
   const shuffleWords = useCallback(() => {
+    setShouldAnimateFlip(false)
     setIsShuffling(true)
     // Small delay to show loading state
     setTimeout(() => {
@@ -486,9 +489,10 @@ export function ConnectionsHelper() {
           const imageUrl = imageMap?.[word]
           const fontSize = word.length > 10 ? "text-[9px] sm:text-xs" : word.length > 7 ? "text-[10px] sm:text-xs" : "text-xs sm:text-sm"
           
-          // Calculate staggered animation delay based on position in grid
-          const animationDelay = puzzleLoaded ? `${index * 30}ms` : "0ms"
-          const animationClass = puzzleLoaded ? "animate-flip-in" : ""
+// Calculate staggered animation delay based on position in grid (only for page load/refresh, not shuffle)
+  const shouldAnimate = puzzleLoaded && shouldAnimateFlip
+  const animationDelay = shouldAnimate ? `${index * 30}ms` : "0ms"
+  const animationClass = shouldAnimate ? "animate-flip-in" : ""
           
           return (
             <button
