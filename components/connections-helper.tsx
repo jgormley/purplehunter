@@ -653,7 +653,10 @@ export function ConnectionsHelper() {
                   <p><span className="text-purple-400">Purple</span> is the sneaky one - puns, wordplay, misdirection.</p>
                 </div>
                 <p className="text-sm text-gray-400 border-t border-gray-700 pt-3">
-                  Tap colors to select, tap words to mark, and shuffle to spot new patterns. <span className="text-orange-400">Long-press a color</span> to mark it as "one away" - the indicator stays on those tiles to help you remember. Happy hunting!
+                  Tap colors to select, tap words to mark, and shuffle to spot new patterns. <span className="text-orange-400">Long-press a color</span> to mark it as "one away" - the indicator stays on those tiles to help you remember.
+                </p>
+                <p className="text-sm text-gray-400 border-t border-gray-700 pt-3">
+                  <span className="text-cyan-400">Drag tiles</span> anywhere on the screen to visually group words you think belong together. Hit Shuffle or Refresh to snap them back to the grid. Happy hunting!
                 </p>
               </div>
             </SheetDescription>
