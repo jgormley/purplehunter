@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import Script from "next/script"
 import { Button } from "@/components/ui/button"
 import {
@@ -169,6 +169,9 @@ export function ConnectionsHelper() {
   const [editText, setEditText] = useState(DEFAULT_WORDS.join("\n"))
   const [isLoading, setIsLoading] = useState(false)
   const [puzzleLoaded, setPuzzleLoaded] = useState(false)
+  const [animationKey, setAnimationKey] = useState(0)
+  const [isShuffling, setIsShuffling] = useState(false)
+  const shufflePendingRef = useRef<string[] | null>(null)
   const [puzzleDate, setPuzzleDate] = useState<string | null>(null)
   const [puzzleId, setPuzzleId] = useState<number | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -181,6 +184,10 @@ export function ConnectionsHelper() {
   const [reportedCompleteColors, setReportedCompleteColors] = useState<Set<CategoryColor>>(new Set())
 
   const fetchTodaysPuzzle = useCallback(async () => {
+    // Reset to empty tiles and show loading overlay
+    setWords(Array(16).fill(""))
+    setWordColors({})
+    setPuzzleLoaded(false)
     setIsLoading(true)
     setFetchError(null)
     
@@ -194,20 +201,24 @@ export function ConnectionsHelper() {
       const data: PuzzleData = await response.json()
       
       if (data.words && data.words.length === 16) {
+        // Remove loading overlay first, then set words and trigger flip animation
+        setIsLoading(false)
         setWords(data.words)
-        setWordColors({})
+        setEditText(data.words.join("\n"))
         setPuzzleDate(data.date)
         setPuzzleId(data.id)
-        setEditText(data.words.join("\n"))
         setImageMap(data.imageMap || null)
-        setPuzzleLoaded(true)
+        // Small delay so React renders words before animation starts
+        setTimeout(() => {
+          setAnimationKey(k => k + 1)
+          setPuzzleLoaded(true)
+        }, 50)
       } else {
         throw new Error("Invalid puzzle data")
       }
     } catch (error) {
       console.error("Error fetching puzzle:", error)
       setFetchError("Could not fetch today's puzzle. Use Edit to enter words manually.")
-    } finally {
       setIsLoading(false)
     }
   }, [])
@@ -235,8 +246,19 @@ export function ConnectionsHelper() {
         const j = Math.floor(Math.random() * (i + 1))
         ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
       }
-      return shuffled
+      shufflePendingRef.current = shuffled
+      return prev // keep old words visible during flip-out
     })
+    // Flip out, swap words, flip in
+    setIsShuffling(true)
+    setTimeout(() => {
+      if (shufflePendingRef.current) {
+        setWords(shufflePendingRef.current)
+        shufflePendingRef.current = null
+      }
+      setIsShuffling(false)
+      setAnimationKey(k => k + 1)
+    }, 250)
   }, [])
 
   const clearAll = useCallback(() => {
@@ -412,8 +434,8 @@ export function ConnectionsHelper() {
         </div>
       )}
 
-      {/* Loading State */}
-      {isLoading && (
+      {/* Loading State (inline spinner - only shown on error/edge cases) */}
+      {isLoading && fetchError && (
         <div className="flex items-center justify-center gap-2 mb-3 text-gray-400">
           <RefreshCw className="w-4 h-4 animate-spin" />
           <span className="text-sm">Loading today&apos;s puzzle...</span>
@@ -461,7 +483,16 @@ export function ConnectionsHelper() {
       </div>
 
       {/* Word Grid */}
-      <div className="grid grid-cols-4 gap-2 mb-3" style={{ perspective: "1000px" }}>
+      <div className="relative grid grid-cols-4 gap-2 mb-3" style={{ perspective: "1000px" }}>
+
+        {/* Loading overlay shown over empty tiles */}
+        {isLoading && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg">
+            <RefreshCw className="w-6 h-6 text-gray-400 animate-spin" />
+            <span className="text-sm text-gray-400 font-medium">Loading puzzle...</span>
+          </div>
+        )}
+
         {words.map((word, index) => {
           const color = wordColors[word]
           const bgColor = color ? CATEGORY_COLORS[color].bg : "#d4d4c8"
@@ -472,21 +503,27 @@ export function ConnectionsHelper() {
           const imageUrl = imageMap?.[word]
           const fontSize = word.length > 10 ? "text-[9px] sm:text-xs" : word.length > 7 ? "text-[10px] sm:text-xs" : "text-xs sm:text-sm"
           
-          // Calculate staggered animation delay based on position in grid
-          const animationDelay = puzzleLoaded ? `${index * 30}ms` : "0ms"
-          const animationClass = puzzleLoaded ? "animate-flip-in" : ""
+          // Flip-in after load or shuffle; flip-out during shuffle
+          const animationDelay = `${index * 30}ms`
+          const animationClass = isShuffling
+            ? "animate-flip-out"
+            : puzzleLoaded
+            ? "animate-flip-in"
+            : ""
           
           return (
             <button
-              key={`${word}-${index}`}
+              key={`${animationKey}-${index}`}
               onClick={() => handleWordClick(word)}
-              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 transition-all active:scale-95 select-none relative overflow-hidden ${animationClass}`}
+              disabled={isLoading || isShuffling}
+              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 transition-colors active:scale-95 select-none relative overflow-hidden ${animationClass}`}
               style={{ 
                 backgroundColor: bgColor, 
                 color: textColor,
                 minHeight: "70px",
                 boxShadow: oneAwayConfig ? `inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : undefined,
                 animationDelay,
+                opacity: isLoading ? 0.4 : 1,
               }}
             >
               {imageUrl ? (
