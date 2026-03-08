@@ -200,8 +200,8 @@ export function ConnectionsHelper() {
   const [draggingTileId, setDraggingTileId] = useState<string | null>(null)
   // Track if we just finished dragging (to prevent click after drag)
   const justDraggedRef = useRef<boolean>(false)
-  // Track drag offsets for each tile (used to animate back to grid)
-  const [dragOffsets, setDragOffsets] = useState<Record<string, { x: number; y: number }>>({})
+  // Counter to force re-mount tiles (resets drag position)
+  const [dragResetKey, setDragResetKey] = useState(0)
   // Track z-index for each tile (most recently dragged is highest)
   const [tileZIndexes, setTileZIndexes] = useState<Record<string, number>>({})
   const maxZIndexRef = useRef(1)
@@ -210,7 +210,7 @@ export function ConnectionsHelper() {
     setIsLoading(true)
     setFetchError(null)
     setShouldAnimateFlip(true)
-    setDragOffsets({}) // Reset drag positions
+    setDragResetKey(k => k + 1) // Reset drag positions
     
     try {
       const response = await fetch("/api/puzzle")
@@ -260,7 +260,7 @@ export function ConnectionsHelper() {
 
   const shuffleWords = useCallback(() => {
     setShouldAnimateFlip(false)
-    setDragOffsets({}) // Reset drag positions - tiles animate back to grid
+    setDragResetKey(k => k + 1) // Reset drag positions
     setIsShuffling(true)
     // Shuffle the tiles array (keeping stable IDs so motion can track position changes)
     setTiles(prev => {
@@ -281,7 +281,7 @@ export function ConnectionsHelper() {
     setWordColors({})
     // Restore original tile order - keep same IDs so Motion animates the position change
     setTiles([...originalTiles])
-    setDragOffsets({}) // Reset drag positions - tiles animate back to grid
+    setDragResetKey(k => k + 1) // Reset drag positions
     setTileZIndexes({}) // Reset z-indexes
     maxZIndexRef.current = 1
     setOneAwayWords(new Map()) // Clear one-away indicators
@@ -533,11 +533,10 @@ export function ConnectionsHelper() {
           const animationClass = shouldAnimate ? "animate-flip-in" : ""
           
           const isDragging = draggingTileId === id
-          const dragOffset = dragOffsets[id] || { x: 0, y: 0 }
           
           return (
             <motion.button
-              key={id}
+              key={`${id}-${dragResetKey}`}
               layoutId={id}
               layout="position"
               drag
@@ -546,8 +545,6 @@ export function ConnectionsHelper() {
               dragConstraints={false}
               initial={false}
               animate={{
-                x: dragOffset.x,
-                y: dragOffset.y,
                 scale: isDragging ? 1.05 : 1,
               }}
               whileDrag={{
@@ -556,8 +553,6 @@ export function ConnectionsHelper() {
               }}
               transition={{
                 layout: { type: "spring", stiffness: 300, damping: 30 },
-                x: { type: "spring", stiffness: 300, damping: 30 },
-                y: { type: "spring", stiffness: 300, damping: 30 },
                 scale: { duration: 0.15 },
               }}
               onDragStart={() => {
@@ -570,16 +565,8 @@ export function ConnectionsHelper() {
                   [id]: maxZIndexRef.current
                 }))
               }}
-              onDragEnd={(_, info) => {
+              onDragEnd={() => {
                 setDraggingTileId(null)
-                // Store the final drag offset
-                setDragOffsets(prev => ({
-                  ...prev,
-                  [id]: {
-                    x: (prev[id]?.x || 0) + info.offset.x,
-                    y: (prev[id]?.y || 0) + info.offset.y,
-                  }
-                }))
                 // Reset drag flag after a short delay to prevent click
                 setTimeout(() => {
                   justDraggedRef.current = false
