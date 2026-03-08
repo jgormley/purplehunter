@@ -3,7 +3,7 @@
 import React from "react"
 import { useState, useCallback, useEffect, useRef } from "react"
 import Script from "next/script"
-import { motion, AnimatePresence } from "motion/react"
+import { motion, AnimatePresence, useMotionValue, useSpring } from "motion/react"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -58,6 +58,185 @@ interface PuzzleData {
 interface Tile {
   id: string    // Stable unique ID for animation tracking
   word: string  // The word content
+}
+
+interface DraggableTileProps {
+  tile: Tile
+  index: number
+  bgColor: string
+  textColor: string
+  fontSize: string
+  imageUrl?: string
+  oneAwayConfig: typeof CATEGORY_COLORS[CategoryColor] | null
+  shouldAnimate: boolean
+  animationDelay: string
+  animationClass: string
+  isLoading: boolean
+  resetTrigger: number
+  onDragStart: (id: string) => void
+  onDragEnd: () => void
+  onClick: (word: string) => void
+  onAnimationEnd: () => void
+  zIndex: number
+  isDragging: boolean
+}
+
+function DraggableTile({
+  tile,
+  index,
+  bgColor,
+  textColor,
+  fontSize,
+  imageUrl,
+  oneAwayConfig,
+  shouldAnimate,
+  animationDelay,
+  animationClass,
+  isLoading,
+  resetTrigger,
+  onDragStart,
+  onDragEnd,
+  onClick,
+  onAnimationEnd,
+  zIndex,
+  isDragging,
+}: DraggableTileProps) {
+  const { id, word } = tile
+  
+  // Use motion values for x/y so we can imperatively reset them
+  const x = useMotionValue(0)
+  const y = useMotionValue(0)
+  
+  // Track the base offset (where the tile should be when not actively dragging)
+  const baseOffsetRef = useRef({ x: 0, y: 0 })
+  
+  // Track if we just dragged (to prevent click after drag)
+  const justDraggedRef = useRef(false)
+  
+  // Track if this is the first render (to skip animation on mount)
+  const isFirstRender = useRef(true)
+  
+  // Reset position when resetTrigger changes
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    
+    baseOffsetRef.current = { x: 0, y: 0 }
+    
+    // Animate back to origin - fast decay animation
+    const currentX = x.get()
+    const currentY = y.get()
+    const duration = 300 // ms
+    let startTime: number | null = null
+    
+    const animate = (time: number) => {
+      if (startTime === null) startTime = time
+      const elapsed = time - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      
+      // Ease out cubic for snappy feel
+      const eased = 1 - Math.pow(1 - progress, 3)
+      
+      x.set(currentX * (1 - eased))
+      y.set(currentY * (1 - eased))
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        x.set(0)
+        y.set(0)
+      }
+    }
+    
+    if (currentX !== 0 || currentY !== 0) {
+      requestAnimationFrame(animate)
+    }
+  }, [resetTrigger, x, y])
+  
+  return (
+    <motion.button
+      key={id}
+      layoutId={id}
+      layout="position"
+      drag
+      dragMomentum={false}
+      dragElastic={0}
+      dragConstraints={false}
+      style={{
+        x,
+        y,
+        backgroundColor: bgColor,
+        color: textColor,
+        minHeight: "70px",
+        boxShadow: isDragging 
+          ? `0 10px 30px rgba(0,0,0,0.3)${oneAwayConfig ? `, inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : ''}`
+          : oneAwayConfig ? `inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : undefined,
+        animationDelay,
+        zIndex,
+      }}
+      initial={false}
+      animate={{
+        scale: isDragging ? 1.05 : 1,
+      }}
+      whileDrag={{
+        scale: 1.05,
+        zIndex: 100,
+      }}
+      transition={{
+        layout: { type: "spring", stiffness: 300, damping: 30 },
+        scale: { duration: 0.15 },
+      }}
+      onDragStart={() => {
+        onDragStart(id)
+        justDraggedRef.current = true
+      }}
+      onDrag={(_, info) => {
+        // Add current drag offset to base offset
+        x.set(baseOffsetRef.current.x + info.offset.x)
+        y.set(baseOffsetRef.current.y + info.offset.y)
+      }}
+      onDragEnd={(_, info) => {
+        // Store the final position as the new base offset
+        baseOffsetRef.current = {
+          x: baseOffsetRef.current.x + info.offset.x,
+          y: baseOffsetRef.current.y + info.offset.y,
+        }
+        onDragEnd()
+        setTimeout(() => {
+          justDraggedRef.current = false
+        }, 50)
+      }}
+      onClick={() => {
+        if (!justDraggedRef.current) {
+          onClick(word)
+        }
+      }}
+      onAnimationEnd={onAnimationEnd}
+      className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 select-none relative overflow-hidden cursor-grab active:cursor-grabbing ${animationClass}`}
+    >
+      {!isLoading && (
+        imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageUrl}
+            alt={word}
+            className="w-[75%] h-[75%] object-contain pointer-events-none"
+            draggable={false}
+          />
+        ) : (
+          <span className="text-center break-words leading-tight">{word}</span>
+        )
+      )}
+      {oneAwayConfig && (
+        <span 
+          className="absolute top-1 right-1 w-2 h-2 rounded-full" 
+          style={{ backgroundColor: oneAwayConfig.oneAwayDot }}
+        />
+      )}
+    </motion.button>
+  )
 }
 
 function ColorButton({ 
@@ -177,6 +356,7 @@ function createTiles(words: string[]): Tile[] {
 
 export function ConnectionsHelper() {
   const [tiles, setTiles] = useState<Tile[]>(() => createTiles(Array(16).fill("")))
+  const [originalTiles, setOriginalTiles] = useState<Tile[]>(() => createTiles(Array(16).fill("")))
   const [wordColors, setWordColors] = useState<Record<string, CategoryColor | null>>({})
   const [selectedColor, setSelectedColor] = useState<CategoryColor>("yellow")
   const [isEditing, setIsEditing] = useState(false)
@@ -197,10 +377,8 @@ export function ConnectionsHelper() {
   const [reportedCompleteColors, setReportedCompleteColors] = useState<Set<CategoryColor>>(new Set())
   // Track which tile is currently being dragged
   const [draggingTileId, setDraggingTileId] = useState<string | null>(null)
-  // Track if we just finished dragging (to prevent click after drag)
-  const justDraggedRef = useRef<boolean>(false)
-  // Key to force reset of drag positions (incremented on shuffle/refresh)
-  const [dragResetKey, setDragResetKey] = useState(0)
+  // Counter to trigger drag position reset in DraggableTile components
+  const [resetTrigger, setResetTrigger] = useState(0)
   // Track z-index for each tile (most recently dragged is highest)
   const [tileZIndexes, setTileZIndexes] = useState<Record<string, number>>({})
   const maxZIndexRef = useRef(1)
@@ -209,7 +387,7 @@ export function ConnectionsHelper() {
     setIsLoading(true)
     setFetchError(null)
     setShouldAnimateFlip(true)
-    setDragResetKey(k => k + 1) // Reset drag positions
+    setResetTrigger(k => k + 1) // Reset drag positions
     
     try {
       const response = await fetch("/api/puzzle")
@@ -221,7 +399,9 @@ export function ConnectionsHelper() {
       const data: PuzzleData = await response.json()
       
       if (data.words && data.words.length === 16) {
-        setTiles(createTiles(data.words))
+        const newTiles = createTiles(data.words)
+        setTiles(newTiles)
+        setOriginalTiles(newTiles)
         setWordColors({})
         setPuzzleDate(data.date)
         setPuzzleId(data.id)
@@ -257,7 +437,9 @@ export function ConnectionsHelper() {
 
   const shuffleWords = useCallback(() => {
     setShouldAnimateFlip(false)
-    setDragResetKey(k => k + 1) // Reset drag positions - tiles animate back to grid
+    setResetTrigger(k => k + 1) // Reset drag positions
+    setTileZIndexes({}) // Reset z-indexes
+    maxZIndexRef.current = 1
     setIsShuffling(true)
     // Shuffle the tiles array (keeping stable IDs so motion can track position changes)
     setTiles(prev => {
@@ -274,9 +456,15 @@ export function ConnectionsHelper() {
     }, 500)
   }, [])
 
-  const clearAll = useCallback(() => {
+  const resetAll = useCallback(() => {
     setWordColors({})
-  }, [])
+    // Restore original tile order - keep same IDs so Motion animates the position change
+    setTiles([...originalTiles])
+    setResetTrigger(k => k + 1) // Reset drag positions
+    setTileZIndexes({}) // Reset z-indexes
+    maxZIndexRef.current = 1
+    setOneAwayWords(new Map()) // Clear one-away indicators
+  }, [originalTiles])
 
   const handleSaveWords = useCallback(() => {
     const newWords = editText
@@ -289,7 +477,9 @@ export function ConnectionsHelper() {
       newWords.push(`WORD${newWords.length + 1}`)
     }
     
-    setTiles(createTiles(newWords))
+    const newTiles = createTiles(newWords)
+    setTiles(newTiles)
+    setOriginalTiles(newTiles)
     setWordColors({})
     setPuzzleDate(null)
     setPuzzleId(null)
@@ -524,87 +714,38 @@ export function ConnectionsHelper() {
           const isDragging = draggingTileId === id
           
           return (
-            <motion.button
-              key={`${id}-${dragResetKey}`}
-              layoutId={`${id}-${dragResetKey}`}
-              layout="position"
-              drag
-              dragMomentum={false}
-              dragElastic={0}
-              dragConstraints={false}
-              initial={false}
-              animate={{
-                scale: isDragging ? 1.05 : 1,
-              }}
-              whileDrag={{
-                scale: 1.05,
-                zIndex: 50,
-              }}
-              transition={{
-                layout: { type: "spring", stiffness: 300, damping: 30 },
-                scale: { duration: 0.15 },
-              }}
-              onDragStart={() => {
+            <DraggableTile
+              key={id}
+              tile={tile}
+              index={index}
+              bgColor={bgColor}
+              textColor={textColor}
+              fontSize={fontSize}
+              imageUrl={imageUrl}
+              oneAwayConfig={oneAwayConfig}
+              shouldAnimate={shouldAnimate}
+              animationDelay={animationDelay}
+              animationClass={animationClass}
+              isLoading={isLoading}
+              resetTrigger={resetTrigger}
+              onDragStart={(id) => {
                 setDraggingTileId(id)
-                justDraggedRef.current = true
-                // Increment max z-index and assign to this tile
                 maxZIndexRef.current += 1
                 setTileZIndexes(prev => ({
                   ...prev,
                   [id]: maxZIndexRef.current
                 }))
               }}
-              onDragEnd={() => {
-                setDraggingTileId(null)
-                // Reset drag flag after a short delay to prevent click
-                setTimeout(() => {
-                  justDraggedRef.current = false
-                }, 50)
-              }}
-              onClick={() => {
-                // Only trigger click if we didn't just drag
-                if (!justDraggedRef.current) {
-                  handleWordClick(word)
-                }
-              }}
+              onDragEnd={() => setDraggingTileId(null)}
+              onClick={handleWordClick}
               onAnimationEnd={() => {
-                // Clear the flip animation class after it completes so drag can work
                 if (shouldAnimateFlip && index === 15) {
                   setShouldAnimateFlip(false)
                 }
               }}
-              className={`aspect-square rounded-lg font-bold ${fontSize} flex items-center justify-center p-1 select-none relative overflow-hidden cursor-grab active:cursor-grabbing ${animationClass}`}
-              style={{ 
-                backgroundColor: bgColor, 
-                color: textColor,
-                minHeight: "70px",
-                boxShadow: isDragging 
-                  ? `0 10px 30px rgba(0,0,0,0.3)${oneAwayConfig ? `, inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : ''}`
-                  : oneAwayConfig ? `inset 0 0 0 2px ${oneAwayConfig.oneAwayRing}` : undefined,
-                animationDelay,
-                zIndex: tileZIndexes[id] || 1,
-              }}
-            >
-              {!isLoading && (
-                imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={imageUrl}
-                    alt={word}
-                    className="w-[75%] h-[75%] object-contain pointer-events-none"
-                    draggable={false}
-                  />
-                ) : (
-                  <span className="text-center break-words leading-tight">{word}</span>
-                )
-              )}
-              {oneAwayConfig && (
-                <span 
-                  className="absolute top-1 right-1 w-2 h-2 rounded-full" 
-                  style={{ backgroundColor: oneAwayConfig.oneAwayDot }}
-                />
-              )}
-            </motion.button>
+              zIndex={tileZIndexes[id] || 1}
+              isDragging={isDragging}
+            />
           )
         })}
         </div>
@@ -626,14 +767,14 @@ export function ConnectionsHelper() {
         </Button>
         <Button
           onClick={() => {
-            trackEvent("click_clear_colors_button")
-            clearAll()
+            trackEvent("click_reset_button")
+            resetAll()
           }}
           variant="outline"
           className="flex-1 h-12 border-white/30 text-white hover:bg-white/10 bg-transparent"
         >
           <RotateCcw className="w-4 h-4 mr-2" />
-          Clear Colors
+          Reset
         </Button>
       </div>
 
