@@ -503,7 +503,7 @@ export function ConnectionsHelper() {
                 animationDelay,
               }}
             >
-              {!isShuffling && (
+              {!isLoading && (
                 imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
