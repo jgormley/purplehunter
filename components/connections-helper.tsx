@@ -279,8 +279,9 @@ export function ConnectionsHelper() {
 
   const resetAll = useCallback(() => {
     setWordColors({})
-    setTiles(originalTiles) // Restore original tile order
-    setDragResetKey(k => k + 1) // Reset drag positions
+    // Restore original tile order - keep same IDs so Motion animates the position change
+    // Note: We intentionally don't change dragResetKey here so tiles animate smoothly
+    setTiles([...originalTiles])
     setTileZIndexes({}) // Reset z-indexes
     maxZIndexRef.current = 1
     setOneAwayWords(new Map()) // Clear one-away indicators
