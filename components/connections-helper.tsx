@@ -790,7 +790,7 @@ export function ConnectionsHelper() {
                 </p>
                 <div className="space-y-2 text-sm">
                   <p><span className="text-yellow-400">Yellow</span> is usually straightforward.</p>
-                  <p><span className="text-green-400">Green</span> and <span className="text-blue-400">Blue</span> require more thought.</p>
+                  <p><span className="text-green-400">Green</span> and <span className="text-blue-400">Blue</span> require more thought and specific knowledge on a topic.</p>
                   <p><span className="text-purple-400">Purple</span> is the sneaky one - puns, wordplay, misdirection.</p>
                 </div>
                 <p className="text-sm text-gray-400 border-t border-gray-700 pt-3">
